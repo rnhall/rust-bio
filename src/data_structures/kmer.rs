@@ -267,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_nucleotide_iterator() {
-        let mut kmer_literal = Kmer::from_literal("ATGCATGCATGCATGCATGCATGC");
+        let kmer_literal = Kmer::from_literal("ATGCATGCATGCATGCATGCATGC");
         println!("{}", kmer_literal);
         for i in kmer_literal {
             println!("{}", byte_to_nuc(i));
