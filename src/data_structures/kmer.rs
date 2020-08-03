@@ -3,25 +3,34 @@
 
 use std::fmt;
 use std::ops::BitXor;
+use std::ops::Not;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Vmer {
+//Should I include mutable kmers and immutable kmers?
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Kmer {
     pub k: usize,
     pub sequence: Vec<u8>,
 }
 
-impl Vmer {
+pub struct KmerIter {
+    pub kmer: Kmer,
+    pub position: usize,
+    pub nucleotide: u8,
+}
+
+impl Kmer {
     pub fn new(len: usize, byte_seq: &[u8]) -> Self {
-        let mut vmer = Vmer
+        let mut kmer = Kmer
         {   k: len, 
             sequence: Vec::new()
         };
-        vmer.encode(byte_seq);
-        vmer
+        kmer.encode(byte_seq);
+        kmer
     }
 
     pub fn from_literal(str_literal: &str) -> Self {
-        Vmer::new(str_literal.len(), str_literal.as_bytes())
+        Kmer::new(str_literal.len(), str_literal.as_bytes())
     }
 
     pub fn encode(&mut self, byte_seq: &[u8]) {
@@ -53,7 +62,7 @@ impl Vmer {
         }
     }
 
-    pub fn decode(self) -> String {
+    pub fn decode(&self) -> String {
         let mut byte_seq = String::new();
         for mer in self.sequence.iter(){
             let mut div = *mer;
@@ -74,16 +83,42 @@ impl Vmer {
                         byte_seq.push('C');
                     }
                     _ => {
-                        panic!("Oh no! Detected a non valid nucleotide!");
+                        panic!("Non-valid nucleotide detected!");
                     }
                 }
             }
         }
         byte_seq
     }
+
+    pub fn retain_complement(&self) -> Kmer {
+        let complement = Kmer::new(self.k, self.decode().as_bytes());
+        !complement
+    }
+
+    pub fn complement(self) -> Self {
+        !self
+    }
+
+    pub fn index(&self, position: usize) -> u8 {
+        if self.k < position {
+            panic!("Index is greater than kmer length!");
+        }
+        let bit_mask: u8 = 0b00000011;
+        let shift = 2 * (position % 4);
+        (self.sequence[position / 4] & (bit_mask << shift)) >> (shift)
+    }
+    //STILL BUGGED
+    pub fn retain_reverse_complement(&self) -> Kmer {
+        unimplemented!();
+    }
+
+    pub fn retain_reverse(&self) -> Kmer {
+        unimplemented!();
+    }
 }
 
-impl fmt::Display for Vmer {
+impl fmt::Display for Kmer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         //Create our output string
         let mut sequence = String::new();
@@ -116,14 +151,102 @@ impl fmt::Display for Vmer {
     }
 }
 
-impl BitXor for Vmer {
+//Iterator implementations
+
+impl Iterator for KmerIter {
+    type Item = u8;
+    fn next(&mut self) -> Option<u8> {
+        if self.position == self.kmer.k {
+            return None
+        }
+        self.nucleotide = self.kmer.index(self.position);
+        self.position += 1;
+        Some(self.nucleotide)
+    }
+}
+
+impl IntoIterator for Kmer {
+    type Item = u8;
+    type IntoIter = KmerIter;
+    fn into_iter(self) -> Self::IntoIter {
+        KmerIter {
+            kmer: self,
+            position: 0,
+            nucleotide: 0,
+        }
+    }
+}
+
+//BITWISE IMPLEMENTATIONS
+
+impl BitXor for Kmer {
     type Output = Self;
     fn bitxor(self, rhs: Self) -> Self::Output {
         assert_eq!(self.k, rhs.k);
         let mut xor_sequence: Vec<u8> = Vec::new();
         for (i, mer) in self.sequence.iter().enumerate() {
+            println!("{}", mer ^ rhs.sequence[i]);
             xor_sequence.push(mer ^ rhs.sequence[i]);
         }
-        Vmer::new(self.k, xor_sequence.as_slice())
+        Kmer {
+            k: self.k,
+            sequence: xor_sequence,
+        }
+    }
+}
+
+impl Not for Kmer {
+    type Output = Self;
+    fn not(self) -> Self::Output {
+        let mut not_sequence: Vec<u8> = Vec::new();
+        for mer in self.sequence.iter() {
+            not_sequence.push(!mer);
+        }
+        Kmer {
+            k: self.k,
+            sequence: not_sequence,
+        }
+    }
+}
+
+//General utility function
+pub fn byte_to_nuc(byte: u8) -> char {
+    match byte {
+        0 => {'A'}
+        1 => {'G'}
+        2 => {'C'}
+        3 => {'T'}
+        _ => {panic!("Non-valid nucleotide detected!")}
+    }
+}
+
+//TESTS
+
+#[cfg(test)]
+mod tests {
+    use super::Kmer;
+    use crate::data_structures::kmer::byte_to_nuc;
+
+    #[test]
+    fn test_vmer_instantiations() {
+        let _kmer_literal = Kmer::from_literal("ATGCATGCATGCATGCATGCATGC");
+        let sequence = String::from("AAAAATTTTTGGGGGCCCCC");
+        let k = 5;
+        for kmer in sequence.as_bytes().windows(k) {
+            let kmer1 = Kmer::new(k, kmer);
+            //let vmer2 = Vmer::new(k, kmer);
+            println!("Kmer:    {}", kmer1);
+            //println!("Rev:     {}", kmer1.retain_reverse());
+            //println!("RevComp: {}", kmer1.retain_reverse_complement());
+        }
+    }
+
+    #[test]
+    fn test_nucleotide_iterator() {
+        let mut kmer_literal = Kmer::from_literal("ATGCATGCATGCATGCATGCATGC");
+        println!("{}", kmer_literal);
+        for i in kmer_literal {
+            println!("{}", byte_to_nuc(i));
+        }
     }
 }
