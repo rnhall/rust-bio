@@ -63,6 +63,7 @@ impl Kmer {
     }
 
     pub fn decode(&self) -> String {
+        let mut counter = 0;
         let mut byte_seq = String::new();
         for mer in self.sequence.iter(){
             let mut div = *mer;
@@ -86,18 +87,36 @@ impl Kmer {
                         panic!("Non-valid nucleotide detected!");
                     }
                 }
+                counter += 1;
+                if counter >= self.k {
+                    break
+                }
             }
         }
         byte_seq
     }
 
-    pub fn retain_complement(&self) -> Kmer {
+    //Does not consume the Kmer and returns a new Kmer
+    pub fn make_complement(&self) -> Kmer {
         let complement = Kmer::new(self.k, self.decode().as_bytes());
         !complement
     }
 
-    pub fn complement(self) -> Self {
-        !self
+    //Modifies the existing Kmer
+    pub fn complement(&mut self) {
+        self.sequence = self.sequence.iter().map(|x| !x).collect();
+    }
+
+    pub fn make_reverse_complement(&self) -> Kmer {
+        let reverse: String = self.decode().chars().rev().collect();
+        let kmer = Kmer::from_literal(reverse.as_str());
+        !kmer
+    }
+
+    pub fn reverse_complement(&mut self) {
+        let reverse: String = self.decode().chars().rev().collect();
+        self.encode(reverse.as_bytes());
+        self.complement();
     }
 
     pub fn index(&self, position: usize) -> u8 {
@@ -107,14 +126,6 @@ impl Kmer {
         let bit_mask: u8 = 0b00000011;
         let shift = 2 * (position % 4);
         (self.sequence[position / 4] & (bit_mask << shift)) >> (shift)
-    }
-    //STILL BUGGED
-    pub fn retain_reverse_complement(&self) -> Kmer {
-        unimplemented!();
-    }
-
-    pub fn retain_reverse(&self) -> Kmer {
-        unimplemented!();
     }
 }
 
@@ -220,6 +231,16 @@ pub fn byte_to_nuc(byte: u8) -> char {
     }
 }
 
+pub fn nuc_to_byte(nuc: char) -> u8 {
+    match nuc {
+        'A' => {0}
+        'G' => {1}
+        'C' => {2}
+        'T' => {3}
+        _ => {panic!("Non-valid nucleotide detected!")}
+    }
+}
+
 //TESTS
 
 #[cfg(test)]
@@ -227,17 +248,20 @@ mod tests {
     use super::Kmer;
     use crate::data_structures::kmer::byte_to_nuc;
 
+
+    //TODO: WRITE SOME ACTUALLY GOOD UNIT TESTS
     #[test]
     fn test_vmer_instantiations() {
         let _kmer_literal = Kmer::from_literal("ATGCATGCATGCATGCATGCATGC");
         let sequence = String::from("AAAAATTTTTGGGGGCCCCC");
         let k = 5;
         for kmer in sequence.as_bytes().windows(k) {
-            let kmer1 = Kmer::new(k, kmer);
+            let mut kmer1 = Kmer::new(k, kmer);
             //let vmer2 = Vmer::new(k, kmer);
             println!("Kmer:    {}", kmer1);
             //println!("Rev:     {}", kmer1.retain_reverse());
-            //println!("RevComp: {}", kmer1.retain_reverse_complement());
+            kmer1.reverse_complement();
+            println!("RevComp: {}", kmer1);
         }
     }
 
