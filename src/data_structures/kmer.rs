@@ -19,6 +19,13 @@ pub struct KmerIter {
     pub nucleotide: u8,
 }
 
+pub struct Kmerizer<'a> {
+    pub k: usize,
+    pub position: usize,
+    pub sequence: &'a[u8],
+    pub current_kmer: Kmer,
+}
+
 impl Kmer {
     pub fn new(len: usize, byte_seq: &[u8]) -> Self {
         let mut kmer = Kmer
