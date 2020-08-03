@@ -26,6 +26,31 @@ pub struct Kmerizer<'a> {
     pub current_kmer: Kmer,
 }
 
+impl<'a> Kmerizer<'a> {
+    pub fn new(k: usize, sequence: &'a[u8]) -> Self {
+        Kmerizer{
+            k: k,
+            position: 0,
+            sequence: sequence,
+            current_kmer: Kmer::empty(k),
+        }
+    }
+}
+
+impl<'a> Iterator for Kmerizer<'a> {
+    type Item = Kmer;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.sequence.len() - self.k <= self.position {
+            None
+        } else {
+            let kmer = Kmer::new(self.k, &self.sequence[self.position..self.position+self.k]);
+            self.position += 1;
+            Some(kmer)
+        }
+    }
+
+}
+
 impl Kmer {
     pub fn new(len: usize, byte_seq: &[u8]) -> Self {
         let mut kmer = Kmer
@@ -34,6 +59,13 @@ impl Kmer {
         };
         kmer.encode(byte_seq);
         kmer
+    }
+
+    pub fn empty(len: usize) -> Self {
+        Kmer{
+            k: len,
+            sequence: Vec::new(),
+        }
     }
 
     pub fn from_literal(str_literal: &str) -> Self {
@@ -253,7 +285,10 @@ pub fn nuc_to_byte(nuc: char) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::Kmer;
+    use super::Kmerizer;
     use crate::data_structures::kmer::byte_to_nuc;
+    use std::path::Path;
+    use crate::io::fasta;
 
 
     //TODO: WRITE SOME ACTUALLY GOOD UNIT TESTS
@@ -279,5 +314,19 @@ mod tests {
         for i in kmer_literal {
             println!("{}", byte_to_nuc(i));
         }
+    }
+
+    #[test]
+    fn test_kmerizer() {
+        let path = Path::new("/home/nelsonhall/Documents/Programming/rust/rust-bio/tests/debug.fasta");
+        let mut reader = fasta::Reader::from_file(path).unwrap();
+        for record in reader.records() {
+            let record = record.unwrap();
+            let kmerizer = Kmerizer::new(21, record.seq());
+            for kmer in kmerizer {
+                println!("{}", kmer);
+            }
+        }
+
     }
 }
